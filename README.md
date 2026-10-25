@@ -2,7 +2,7 @@
 
 Classifies a resume into one of 24 job categories (HR, CHEF, BANKING, INFORMATION-TECHNOLOGY, TEACHER, and more). Two approaches are built and compared: **TF-IDF + Logistic Regression** and **sentence embeddings + Logistic Regression**. The TF-IDF version also says **"UNSURE"** when the model is not confident, and the project looks inside the model to see which words drive each prediction.
 
-**Status:** both models built and compared. A FastAPI endpoint and Docker are still planned (see [Roadmap](#roadmap)).
+**Status:** both models built and compared. The TF-IDF model is served through a FastAPI endpoint and runs in Docker. Serving the embeddings model is still planned (see [Roadmap](#roadmap)).
 
 ## Problem
 
@@ -26,6 +26,10 @@ Given the text of a resume, predict its job category. This is a multi-class text
 | `resume-category-classifier.ipynb` | TF-IDF version: cleaning, `C` tuning, word vs character n-grams, model weights, `predict_resume` with `UNSURE` |
 | `02_embeddings.ipynb` | Embeddings version and comparison with TF-IDF |
 | `resume_pipeline.pkl` | Saved TF-IDF + Logistic Regression pipeline |
+| `app/main.py` | FastAPI app with a `/predict` endpoint |
+| `requirements.txt` | Exact library versions the API needs |
+| `Dockerfile` | Recipe to run the API in a container |
+| `PROJECT_WALKTHROUGH.md` | Full step-by-step explanation of the project |
 
 ## Approach
 
@@ -75,6 +79,40 @@ Many top words match intuition:
 - **Low confidence.** The `UNSURE` threshold of 0.50 is a starting value chosen from a few examples, not a tuned one.
 - **Not yet checked:** how much of a long resume the embedding model actually reads.
 
+## Running the API
+
+The TF-IDF model is served with FastAPI. `POST /predict` takes a resume text and returns a category and a confidence. If the top probability is below 0.50, the category is `"UNSURE"`.
+
+**With Docker**
+
+```bash
+docker build -t resume-api .
+docker run -p 8000:8000 resume-api
+```
+
+**Without Docker** (Python 3.12)
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate          # Windows; on Mac/Linux: source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --reload
+```
+
+Then open `http://127.0.0.1:8000/docs`, choose `POST /predict`, click *Try it out*, and send:
+
+```json
+{"text": "Dedicated chef with experience in kitchen operations, menu planning and culinary techniques."}
+```
+
+Example response:
+
+```json
+{"category": "CHEF", "confidence": 0.99}
+```
+
+The versions in `requirements.txt` match the ones used to save `resume_pipeline.pkl` (scikit-learn 1.6.1). Loading the file with a different scikit-learn version may warn or behave differently.
+
 ## Using the saved TF-IDF model
 
 ```python
@@ -88,7 +126,7 @@ The cleaning function is not inside the pipeline, so it must be applied before p
 
 ## Tech stack
 
-Python, pandas, NumPy, scikit-learn, sentence-transformers, joblib, Google Colab.
+Python, pandas, NumPy, scikit-learn, sentence-transformers, joblib, FastAPI, Docker, Google Colab.
 
 ## Roadmap
 
@@ -96,9 +134,10 @@ Python, pandas, NumPy, scikit-learn, sentence-transformers, joblib, Google Colab
 - [x] Inspect model weights and investigate odd words
 - [x] Save the pipeline and add a `predict_resume` function with an `UNSURE` threshold
 - [x] Compare against sentence embeddings
-- [ ] Choose the final model for serving
-- [ ] Serve the model with a FastAPI `/predict` endpoint
-- [ ] Containerize with Docker
+- [x] Serve the TF-IDF model with a FastAPI `/predict` endpoint (with the `UNSURE` rule)
+- [x] Containerize with Docker
+- [ ] Serve the embeddings model too (larger install, needs the sentence-transformers library)
+- [ ] Tune the `UNSURE` threshold on more resumes
 
 ## Author
 
